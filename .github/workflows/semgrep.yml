@@ -2,7 +2,8 @@ on:
   pull_request: {}
   push:
     branches:
-    - develop
+    - main
+    - master
     paths:
     - .github/workflows/semgrep.yml
   schedule:
@@ -12,8 +13,53 @@ jobs:
   semgrep:
     name: Scan
     runs-on: ubuntu-latest
+    env:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    container:
+      image: returntocorp/semgrep
     steps:
-    - uses: actions/checkout@v2
-    - uses: returntocorp/semgrep-action@v1
+    - uses: actions/checkout@v3
+    - run: semgrep ci --json --output=semgrep.json   
+  
+    - name: check the file
+      run: ls
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v3
       with:
-        publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
+        name: semgrep-report.json
+        path: semgrep.json
+      
+
+   
+  apiiro:
+    needs: Semgrep
+    runs-on: ubuntu-latest
+    steps:  
+    - uses: actions/checkout@v3
+    - name: download results
+      uses: actions/download-artifact@v3
+      with:
+        name: semgrep-report.json
+
+    
+    - name: list 
+      run: ls -al 
+  
+    - name: convert
+      run: python apiiro_convert.py semgrep.json semgrep.apiiro 
+
+    - name: test
+      run: ls
+
+#    - name: upload the file 
+#      run: curl -k -H "Content-Type: application/json" -H "Authorization: ${{ secrets.APIIRO_TOKEN }}"" --data "@findings_report.json" ''
+       
+
+    - run: |
+          curl -vvv -X POST "$APIIRO_URL" \
+          -H "Authorization: ${{ secrets.APIIRO_TOKEN }}" \
+          -H 'Content-Type: application/json' \
+          --data '@findings_report.json'
+      env:
+        APIIRO_URL: https://app-staging.apiiro.com/rest-api/v1/findings/report
