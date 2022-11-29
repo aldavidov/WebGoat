@@ -18,16 +18,30 @@ def should_convert_semgrep_finding_json(semgrep_finding_json):
     return semgrep_finding_json.get("extra", dict()).get("metadata", dict()).get("category", "") == "security"
 
 
-def _cwe_name_to_type(cwe_name):
-    if cwe_name is None:
+def _cwe_to_type(cwe):
+    if cwe is None:
         return ""
-    match = re.match("CWE-[0-9]+: ", cwe_name)
+    if type(cwe) is list:
+        if len(cwe) == 0:
+            return ""
+        cwe = cwe[0]
+    match = re.match("CWE-[0-9]+: ", cwe)
     if match is None:
-        return cwe_name
+        return cwe
     span = match.span()
     if span[0] != 0:
-        return cwe_name
-    return cwe_name[span[1]:]
+        return cwe
+    return cwe[span[1]:]
+
+
+def _cwe_to_cwe_identifiers(cwe):
+    if cwe is None:
+        return []
+    if type(cwe) is list:
+        if len(cwe) == 0:
+            return []
+        return [_cwe_to_type(c) for c in cwe]
+    return [_cwe_to_type(cwe)]
 
 
 def finding_from_semgrep_finding_json(semgrep_finding_json):
@@ -37,8 +51,8 @@ def finding_from_semgrep_finding_json(semgrep_finding_json):
         "FilePath": semgrep_finding_json.get("path"),
         "LineNumber": semgrep_finding_json.get("start", dict()).get("line", None),
         "EndLineNumber": semgrep_finding_json.get("end", dict()).get("line", None),
-        "Type": _cwe_name_to_type(metadata_fields.get("cwe")),
-        "CweIdentifiers": [metadata_fields.get("cwe")],
+        "Type": _cwe_to_type(metadata_fields.get("cwe")),
+        "CweIdentifiers": _cwe_to_cwe_identifiers(metadata_fields.get("cwe")),
         "Severity": SEMGREP_SEVERITY_TO_INT.get(extra_fields.get("severity", 0)),
         "Description": extra_fields.get("message"),
         "standards": ["OWASP"] if "owasp" in metadata_fields else [],
@@ -64,7 +78,7 @@ def semgrep_output_to_findings_report(input_file, output_file):
     results = data[RESULTS_KEY]
     findings_report = create_findings_report()
     findings_report["CodeFindings"] = [finding_from_semgrep_finding_json(result) for result in results if
-                                   should_convert_semgrep_finding_json(result)]
+                                       should_convert_semgrep_finding_json(result)]
     with open(output_file, "w") as f:
         json.dump(findings_report, f)
 
