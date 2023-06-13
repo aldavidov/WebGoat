@@ -58,6 +58,8 @@ import static org.springframework.http.ResponseEntity.ok;
 @AssignmentHints({"jwt-refresh-hint1", "jwt-refresh-hint2", "jwt-refresh-hint3", "jwt-refresh-hint4"})
 public class JWTRefreshEndpoint extends AssignmentEndpoint {
 
+    
+   
     public static final String PASSWORD = "bm5nhSkxCXZkKRy4";
     private static final String JWT_PASSWORD = "bm5n3SkxCX4kKRy4";
     private static final List<String> validRefreshTokens = new ArrayList<>();
